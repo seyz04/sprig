@@ -24,6 +24,21 @@ Settings > Edit data.json, then quit Sprig first and reopen it after saving. Com
 
 `weekdays`: 1 is Sunday, empty is every day. Use `"command"` instead of `"prompt"` for a shell command. Sprig must be running.
 
+## Connect your agents
+
+Sprig includes a small MCP server. Agents can add tasks and read today's list. They can't edit, delete or run anything.
+
+Claude Code plugin (adds the server and an `email-to-sprig` skill):
+
+    /plugin marketplace add seyz04/sprig
+    /plugin install sprig@sprig
+
+Any other MCP client:
+
+    {"mcpServers": {"sprig": {"command": "/Applications/Sprig.app/Contents/MacOS/Sprig", "args": ["--mcp"]}}}
+
+Then ask for "an email run into Sprig", or put that in a scheduled agent. The skill uses your own mail connector and only reads.
+
 ## Credits
 
 MIT license. The tutor is adapted from Jane Street's [socratic-tutor](https://github.com/janestreet/agent_skills) (MIT, see `Resources/`).

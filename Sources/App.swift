@@ -5,6 +5,7 @@ import Combine
 struct Main {
     static func main() {
         if CommandLine.arguments.contains("--selftest") { selfTest(); return }
+        if CommandLine.arguments.contains("--mcp") { MCP.serve(); return }
         let app = NSApplication.shared, d = AppDelegate()
         app.delegate = d
         app.setActivationPolicy(.accessory)
@@ -24,7 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.target = self; item.button?.action = #selector(togglePanel)
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView: PanelView(openTutor: { [weak self] in self?.openTutor() }))
+        let host = NSHostingController(rootView: PanelView(openTutor: { [weak self] in self?.openTutor() }))
+        host.sizingOptions = []   // we set the size; otherwise the popover is placed before SwiftUI resizes it
+        popover.contentViewController = host
         bag = store.$data.receive(on: RunLoop.main).sink { [weak self] _ in self?.refreshIcon() }
         refreshIcon(); buildMenu()
         Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in self?.tick() }
@@ -43,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func tick() {
-        refreshIcon()
+        store.importInbox(); refreshIcon()
         let now = Date()
         for r in store.data.routines where r.isDue(now) { store.run(r) { [weak self] in self?.show() } }
         let pop = Routine(name: "popup", hour: store.data.popupHour, minute: store.data.popupMinute, lastRun: store.data.lastPopup)
@@ -53,7 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func togglePanel() { popover.isShown ? popover.performClose(nil) : show() }
     func show() {
         guard !popover.isShown, let b = item.button else { return }
+        let screen = (b.window?.screen ?? NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 720)
+        popover.contentSize = panelSize(screen)
         popover.show(relativeTo: b.bounds, of: b, preferredEdge: .minY)
+        if let w = popover.contentViewController?.view.window { w.setFrame(clamp(w.frame, to: screen), display: true) }
         popover.contentViewController?.view.window?.makeKey()
     }
 
@@ -79,6 +85,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 }
 
+/// Panel size for any Mac: 11-inch laptops up to large external displays.
+func panelSize(_ s: NSRect) -> NSSize { NSSize(width: min(350, s.width - 24), height: min(max(420, s.height * 0.6), 720, s.height - 40)) }
+
+/// Moves a frame fully inside the visible screen (hidden icons and the notch can push a popover off the edge).
+func clamp(_ f: NSRect, to s: NSRect) -> NSRect {
+    var r = f
+    r.size.height = min(r.height, s.height)
+    r.origin.x = max(s.minX, min(r.minX, s.maxX - r.width))
+    r.origin.y = max(s.minY, min(r.minY, s.maxY - r.height))
+    return r
+}
+
 func selfTest() {
     func check(_ c: Bool, _ m: String) { if !c { print("FAIL: \(m)"); exit(1) } }
     let cal = Calendar.current, tomorrow = cal.date(byAdding: .day, value: 1, to: Date())!
@@ -93,5 +111,13 @@ func selfTest() {
     check(r.isDue(noon), "due"); r.lastRun = noon; check(!r.isDue(noon.addingTimeInterval(60)), "only once")
     check(r.isDue(noon.addingTimeInterval(86400)), "next day"); check(!Routine(name: "x", hour: 13, minute: 0).isDue(noon), "not yet")
     r.lastRun = nil; r.weekdays = [cal.component(.weekday, from: noon) % 7 + 1]; check(!r.isDue(noon), "wrong weekday")
+    for s in [NSRect(x: 0, y: 0, width: 1366, height: 705), NSRect(x: 0, y: 70, width: 1470, height: 853), NSRect(x: -3840, y: 200, width: 3840, height: 2100), NSRect(x: 0, y: 0, width: 300, height: 400)] {
+        let z = panelSize(s)
+        check(z.height <= s.height && z.width <= s.width, "fits \(s)")
+        check(s.contains(clamp(NSRect(x: s.maxX - 20, y: s.maxY - 100, width: z.width, height: z.height), to: s)), "clamp \(s)")
+    }
+    check(Inbox.todos([["title": "  Reply to advisor ", "due": "2026-12-01T14:00", "key": "m1"]], source: "mail").first.map { $0.title == "Reply to advisor" && $0.hasTime && $0.id == "agent-mail-m1" } ?? false, "inbox")
+    check(Inbox.todos([["title": ""], ["nope": 1]], source: "x").isEmpty, "inbox rejects junk")
+    check(Inbox.todos(Array(repeating: ["title": String(repeating: "a", count: 999)], count: 80), source: "x").count == 50, "inbox limit")
     print("ok")
 }

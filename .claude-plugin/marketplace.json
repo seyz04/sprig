@@ -1,0 +1,1 @@
+{"name": "sprig", "description": "Sprig menu bar to-do list for Mac", "owner": {"name": "Sey Zeme"}, "plugins": [{"name": "sprig", "source": "./plugin", "description": "Send tasks from your agents to the Sprig menu bar list"}]}

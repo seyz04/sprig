@@ -9,6 +9,8 @@ struct Todo: Codable, Identifiable, Equatable {
     var done: Date?
     var step: String?          // tiny first step suggested by the agent
     var rank: Int?             // agent's order for today
+    var note: String?
+    var source: String?        // which agent added it
 }
 
 struct Routine: Codable, Identifiable {
@@ -118,6 +120,19 @@ final class Store: ObservableObject {
             }
         }
         if added { save() }
+    }
+
+    /// Tasks other agents queued through --mcp. Text only: nothing here is ever run.
+    func importInbox() {
+        guard loaded, let files = try? FileManager.default.contentsOfDirectory(at: Inbox.dir, includingPropertiesForKeys: nil) else { return }
+        for f in files where f.pathExtension == "json" {
+            if let raw = try? Data(contentsOf: f), let items = try? Inbox.decoder.decode([Todo].self, from: raw) {
+                let known = Set(data.todos.map(\.id))
+                data.todos += items.filter { !known.contains($0.id) }
+                save()
+            }
+            try? FileManager.default.removeItem(at: f)   // our own queue file, already saved above
+        }
     }
 
     func add(_ raw: String) { if let t = parseTodo(raw) { data.todos.append(t); save() } }

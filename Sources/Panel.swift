@@ -60,8 +60,8 @@ struct PanelView: View {
             }
             .buttonStyle(.borderless).padding(12)
         }
-        .frame(width: 350, height: 480)
-        .onAppear { store.importSources(); focused = true }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { store.importSources(); store.importInbox(); focused = true }
     }
 
     func section(_ title: String, _ c: Color, _ items: [Todo]) -> some View {
@@ -79,6 +79,8 @@ struct PanelView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(t.title).strikethrough(t.done != nil).foregroundStyle(t.done == nil ? .primary : .secondary).fixedSize(horizontal: false, vertical: true)
                 if let s = t.step, t.done == nil { Text("First: \(s)").font(.caption).foregroundStyle(.green).fixedSize(horizontal: false, vertical: true) }
+                if let n = t.note, t.done == nil { Text(n).font(.caption).foregroundStyle(.secondary).lineLimit(3) }
+                if let s = t.source, t.done == nil { Label("from \(s)", systemImage: "tray.and.arrow.down").font(.caption).foregroundStyle(.secondary) }
                 if let d = t.due, t.done == nil { Label(when(d, t.hasTime), systemImage: "calendar").font(.caption).foregroundStyle(overdue(d, t.hasTime) ? .red : .secondary) }
             }
             Spacer(minLength: 0)
