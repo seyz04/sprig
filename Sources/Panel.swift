@@ -10,6 +10,8 @@ struct PanelView: View {
     @State private var draft = ""
     @State private var showLater = false
     @State private var showRoutines = false
+    @State private var deploying: String?
+    @State private var ask = ""
     @State private var login = SMAppService.mainApp.status == .enabled
     @FocusState private var focused: Bool
 
@@ -53,6 +55,7 @@ struct PanelView: View {
                         do { if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() } }
                         catch { login = SMAppService.mainApp.status == .enabled; store.error = error.localizedDescription }
                     }
+                    Toggle("Deploy tasks to an agent", isOn: Binding(get: { store.data.deploy ?? false }, set: { store.data.deploy = $0; store.save() }))
                     Button("Edit data.json") { NSWorkspace.shared.activateFileViewerSelecting([Store.file]) }
                     Divider()
                     Button("Quit Sprig") { NSApp.terminate(nil) }
@@ -82,10 +85,38 @@ struct PanelView: View {
                 if let n = t.note, t.done == nil { Text(n).font(.caption).foregroundStyle(.secondary).lineLimit(3) }
                 if let s = t.source, t.done == nil { Label("from \(s)", systemImage: "tray.and.arrow.down").font(.caption).foregroundStyle(.secondary) }
                 if let d = t.due, t.done == nil { Label(when(d, t.hasTime), systemImage: "calendar").font(.caption).foregroundStyle(overdue(d, t.hasTime) ? .red : .secondary) }
+                if store.data.deploy == true, t.done == nil { deployArea(t) }
             }
             Spacer(minLength: 0)
+            if store.data.deploy == true, t.done == nil {
+                if store.running.contains(t.id) { ProgressView().controlSize(.small) } else {
+                    Button { deploying = deploying == t.id ? nil : t.id; ask = "" } label: { Image(systemName: "paperplane") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary).help("Deploy to agent").accessibilityLabel("Deploy \(t.title) to agent")
+                }
+            }
         }
         .contextMenu { Button("Delete", role: .destructive) { store.delete(t) } }
+    }
+
+    @ViewBuilder func deployArea(_ t: Todo) -> some View {
+        if deploying == t.id {
+            TextField("What should it do? e.g. draft the email", text: $ask).textFieldStyle(.roundedBorder).onSubmit { send(t, ask) }
+            HStack { ForEach(["Draft it", "Break it down", "Make a checklist"], id: \.self) { q in Button(q) { send(t, q) }.controlSize(.small) } }
+        }
+        if let r = t.result {
+            Text(r).font(.caption).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                .padding(8).background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))
+            HStack {
+                Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r, forType: .string) }
+                Button("Clear") { store.clearResult(t) }
+            }.controlSize(.small)
+        }
+    }
+
+    func send(_ t: Todo, _ q: String) {
+        let x = q.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !x.isEmpty else { return }
+        deploying = nil; ask = ""; store.deploy(t, x)
     }
 
     func routine(_ r: Routine) -> some View {

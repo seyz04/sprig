@@ -58,7 +58,7 @@ enum MCP {
             let p = m["params"] as? [String: Any] ?? [:]
             var reply: [String: Any] = ["jsonrpc": "2.0", "id": id]
             switch method {
-            case "initialize": reply["result"] = ["protocolVersion": p["protocolVersion"] as? String ?? "2025-06-18", "capabilities": ["tools": [String: Any]()], "serverInfo": ["name": "sprig", "version": "0.2"]]
+            case "initialize": reply["result"] = ["protocolVersion": p["protocolVersion"] as? String ?? "2025-06-18", "capabilities": ["tools": [String: Any]()], "serverInfo": ["name": "sprig", "version": "0.3"]]
             case "ping": reply["result"] = [String: Any]()
             case "tools/list": reply["result"] = ["tools": tools]
             case "tools/call":

@@ -119,5 +119,6 @@ func selfTest() {
     check(Inbox.todos([["title": "  Reply to advisor ", "due": "2026-12-01T14:00", "key": "m1"]], source: "mail").first.map { $0.title == "Reply to advisor" && $0.hasTime && $0.id == "agent-mail-m1" } ?? false, "inbox")
     check(Inbox.todos([["title": ""], ["nope": 1]], source: "x").isEmpty, "inbox rejects junk")
     check(Inbox.todos(Array(repeating: ["title": String(repeating: "a", count: 999)], count: 80), source: "x").count == 50, "inbox limit")
+    check((try? Inbox.decoder.decode(AppData.self, from: Data(#"{"todos":[],"routines":[],"subjects":[],"sources":[],"popupHour":8,"popupMinute":30}"#.utf8)))?.deploy == nil, "old data.json still opens")
     print("ok")
 }
