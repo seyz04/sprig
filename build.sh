@@ -10,4 +10,5 @@ lipo -create build/Sprig-arm64 build/Sprig-x86_64 -output "$A/Contents/MacOS/Spr
 cp Info.plist "$A/Contents/"; cp Resources/* "$A/Contents/Resources/"
 codesign --force -s - "$A"
 "$A/Contents/MacOS/Sprig" --selftest
-if [ "$1" = "--install" ]; then pkill -x Sprig || true; rm -rf /Applications/Sprig.app; cp -R "$A" /Applications/; open /Applications/Sprig.app; fi
+if [ "$1" = "--install" ]; then pkill -f '/MacOS/Sprig$' || true  # leaves running --mcp servers alone
+  rm -rf /Applications/Sprig.app; cp -R "$A" /Applications/; open /Applications/Sprig.app; fi
